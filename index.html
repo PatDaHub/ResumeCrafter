@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title> Resume Crafter</title>
+    <title>ResumeCrafter</title>
     <meta name="description" content="Build a professional resume in minutes with ResumeCrafter. Drag-and-drop blocks, custom fonts, dark mode, and free PDF export. No sign-up required.">
     <meta name="keywords" content="resume builder, cv maker, free resume builder, pdf resume, job application tool">
     <meta property="og:title" content="ResumeCrafter Resume Builder">
@@ -224,7 +224,7 @@
     <div class="flex-1 flex overflow-hidden relative">
         
         <!-- Sidebar: Navigation -->
-        <aside class="w-16 md:w-20 bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 flex flex-col items-center py-6 gap-6 shrink-0 z-30">
+        <aside id="sidebar-nav" class="w-16 md:w-20 bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 flex flex-col items-center py-6 gap-6 shrink-0 z-30">
             <button onclick="app.setTab('editor')" class="nav-btn active group relative p-3 rounded-xl hover:bg-blue-50 dark:hover:bg-slate-700 text-blue-600 dark:text-blue-400 transition-all">
                 <i class="fa-solid fa-pen-to-square text-xl"></i>
                 <span class="absolute left-14 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">Content</span>
@@ -243,13 +243,13 @@
         </aside>
 
         <!-- Editor Panel -->
-        <section id="panel-editor" class="w-full md:w-[450px] lg:w-[500px] bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 flex flex-col shrink-0 transition-all duration-300 absolute md:relative z-20 h-full transform md:transform-none shadow-xl md:shadow-none">
+        <section id="panel-editor" class="w-full md:w-[450px] lg:w-[500px] bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 flex flex-col shrink-0 transition-transform duration-300 absolute md:relative z-20 h-full transform md:transform-none shadow-xl md:shadow-none">
             
             <!-- Panel Header -->
             <div class="h-14 border-b border-gray-200 dark:border-slate-700 flex items-center justify-between px-6 bg-gray-50 dark:bg-slate-800/50">
                 <h2 id="panel-title" class="font-bold text-lg">Content Editor</h2>
-                <button class="md:hidden text-gray-500" onclick="app.toggleMobilePreview()">
-                    <i class="fa-solid fa-eye"></i> Preview
+                <button class="md:hidden text-blue-600 font-semibold text-sm bg-blue-50 px-3 py-1 rounded-full" onclick="app.toggleMobilePreview()">
+                    <i class="fa-solid fa-eye"></i> Preview Resume
                 </button>
             </div>
 
@@ -268,7 +268,13 @@
 
         <!-- Preview Area -->
         <main class="flex-1 bg-gray-100 dark:bg-slate-900 flex items-center justify-center p-8 overflow-hidden relative">
-            <div class="absolute top-4 right-4 flex gap-2 z-10">
+            
+            <!-- Mobile "Back to Editor" Button -->
+            <button onclick="app.toggleMobilePreview()" class="md:hidden fixed bottom-6 right-6 z-50 w-14 h-14 bg-blue-600 text-white rounded-full shadow-2xl flex items-center justify-center text-xl hover:scale-105 transition-transform" title="Edit Resume">
+                <i class="fa-solid fa-pen"></i>
+            </button>
+
+            <div class="absolute top-4 right-4 flex gap-2 z-10 hidden md:flex">
                 <div class="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 flex items-center p-1">
                     <button onclick="app.zoom(-0.1)" class="w-8 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-slate-700 rounded text-gray-600 dark:text-slate-300"><i class="fa-solid fa-minus"></i></button>
                     <span id="zoom-level" class="text-xs font-mono w-12 text-center text-gray-500 dark:text-slate-400">100%</span>
@@ -278,7 +284,7 @@
 
             <div class="overflow-auto w-full h-full flex items-start justify-center pt-4 pb-20" id="preview-scroll-container">
                 <!-- Resume Page Container -->
-                <div id="resume-preview" class="a4-page text-sm leading-normal">
+                <div id="resume-preview" class="a4-page text-sm leading-normal origin-top">
                    <!-- Content Rendered by JS -->
                 </div>
             </div>
@@ -422,14 +428,8 @@
         class ResumeApp {
             constructor() {
                 this.data = JSON.parse(localStorage.getItem('resumeDataBlock')) || JSON.parse(JSON.stringify(DEFAULT_DATA));
-                // Migration check
-                if (!this.data.blocks) {
-                    this.data = JSON.parse(JSON.stringify(DEFAULT_DATA));
-                }
-                // Ensure customFonts array exists
-                if (!this.data.meta.customFonts) {
-                    this.data.meta.customFonts = [];
-                }
+                if (!this.data.blocks) this.data = JSON.parse(JSON.stringify(DEFAULT_DATA));
+                if (!this.data.meta.customFonts) this.data.meta.customFonts = [];
                 
                 this.availableFonts = ['Inter', 'Merriweather', 'Roboto Mono', 'Lato'];
                 this.currentTab = 'editor';
@@ -444,6 +444,12 @@
                 this.renderEditor();
                 this.renderPreview();
                 this.loadDarkMode();
+                
+                // Auto-scale on mobile load
+                if (window.innerWidth < 768) {
+                    setTimeout(() => this.autoZoomMobile(), 500);
+                }
+
                 setInterval(() => this.save(), 2000);
             }
 
@@ -485,7 +491,36 @@
             }
 
             toggleMobilePreview() {
-                document.querySelector('main').classList.toggle('hidden');
+                const editor = document.getElementById('panel-editor');
+                const sidebar = document.getElementById('sidebar-nav');
+                
+                // Toggle visibility logic
+                // If editor contains 'hidden', we are in Preview Mode -> Go to Edit
+                // If editor is visible, we are in Edit Mode -> Go to Preview
+                
+                if (editor.classList.contains('hidden')) {
+                    // Show Editor
+                    editor.classList.remove('hidden');
+                    sidebar.classList.remove('hidden');
+                } else {
+                    // Hide Editor (Show Preview)
+                    editor.classList.add('hidden');
+                    sidebar.classList.add('hidden');
+                    this.autoZoomMobile();
+                }
+            }
+
+            autoZoomMobile() {
+                if (window.innerWidth < 768) {
+                    const containerWidth = document.getElementById('preview-scroll-container').clientWidth;
+                    // A4 width in px approx 794px at 96 DPI, simplified logic
+                    // The .a4-page is 210mm. 1mm approx 3.78px. 210 * 3.78 = 793.8px
+                    const a4Width = 794; 
+                    const scale = (containerWidth - 32) / a4Width; // 32px padding
+                    
+                    this.zoomLevel = Math.max(0.3, Math.min(1.0, scale));
+                    document.getElementById('resume-preview').style.transform = `scale(${this.zoomLevel})`;
+                }
             }
 
             openAddBlockModal() {
