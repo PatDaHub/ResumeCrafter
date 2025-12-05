@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> Resume Crafter</title>
+    <meta name="description" content="Build a professional resume in minutes with ResumeCrafter. Drag-and-drop blocks, custom fonts, dark mode, and free PDF export. No sign-up required.">
+    <meta name="keywords" content="resume builder, cv maker, free resume builder, pdf resume, job application tool">
+    <meta property="og:title" content="ResumeCrafter Resume Builder">
+    <meta property="og:description" content="Create professional resumes with drag-and-drop blocks and custom styling.">
+    <meta property="og:type" content="website">
+    
+    <!-- Libraries -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts (Default) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Merriweather:wght@300;400;700&family=Roboto+Mono:wght@400;500&family=Lato:wght@300;400;700&display=swap" rel="stylesheet" id="google-fonts-link">
+    <!-- Drag and Drop -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    <!-- PDF Generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#64748b',
+                        dark: '#0f172a',
+                        paper: '#ffffff'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        serif: ['Merriweather', 'serif'],
+                        mono: ['Roboto Mono', 'monospace'],
+                        lato: ['Lato', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        .dark ::-webkit-scrollbar-thumb {
+            background: #334155; 
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+
+        /* A4 Paper Logic */
+        .a4-page {
+            width: 210mm;
+            min-height: 297mm;
+            margin: 0 auto;
+            background: white;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+            position: relative;
+            transform-origin: top center;
+            transition: transform 0.2s ease;
+        }
+
+        /* Print Override */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #resume-preview, #resume-preview * {
+                visibility: visible;
+            }
+            #resume-preview {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                margin: 0;
+                padding: 0;
+                box-shadow: none;
+                transform: none !important;
+            }
+            .no-print {
+                display: none !important;
+            }
+        }
+
+        /* Smooth inputs */
+        .input-group {
+            transition: all 0.2s;
+        }
+        .input-group:focus-within {
+            transform: translateX(4px);
+        }
+
+        /* Range Slider */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #3b82f6;
+            margin-top: -6px;
+            cursor: pointer;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #cbd5e1;
+            border-radius: 2px;
+        }
+
+        /* Block Animation */
+        .block-item {
+            animation: fadeIn 0.3s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Toast Notification */
+        #toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 50;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .toast {
+            min-width: 250px;
+            padding: 12px 16px;
+            background: #1e293b;
+            color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            font-size: 0.875rem;
+            animation: slideIn 0.3s ease-out;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(100%); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        .toast.success { border-left: 4px solid #22c55e; }
+        .toast.info { border-left: 4px solid #3b82f6; }
+        .toast.error { border-left: 4px solid #ef4444; }
+
+        /* Loader */
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 3px solid #3b82f6;
+            width: 20px;
+            height: 20px;
+            -webkit-animation: spin 1s linear infinite; /* Safari */
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Block Handle */
+        .block-handle {
+            cursor: move;
+            opacity: 0.5;
+            transition: opacity 0.2s;
+        }
+        .block-handle:hover {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-slate-800 dark:bg-slate-900 dark:text-slate-100 h-screen overflow-hidden flex flex-col transition-colors duration-300">
+
+    <!-- Navbar -->
+    <nav class="h-16 bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 flex items-center justify-between px-6 shrink-0 z-40">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-blue-500/30">
+                <i class="fa-solid fa-layer-group"></i>
+            </div>
+            <h1 class="font-bold text-xl tracking-tight hidden md:block"><span class="text-blue-600">Resume</span>Crafter</h1>
+        </div>
+        
+        <div class="flex items-center gap-4">
+            <button onclick="app.toggleDarkMode()" class="w-10 h-10 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 flex items-center justify-center transition-colors" title="Toggle Dark Mode">
+                <i class="fa-solid fa-moon dark:hidden"></i>
+                <i class="fa-solid fa-sun hidden dark:inline text-yellow-400"></i>
+            </button>
+            <div class="h-6 w-px bg-gray-300 dark:bg-slate-600"></div>
+            <button onclick="app.randomizeDesign()" class="flex items-center gap-2 px-3 py-2 text-sm font-medium text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-slate-700 rounded-md transition-colors">
+                <i class="fa-solid fa-dice"></i> <span class="hidden sm:inline">Randomize</span>
+            </button>
+            <button onclick="app.exportPDF()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-sm font-semibold shadow-md shadow-blue-500/20 flex items-center gap-2 transition-transform hover:scale-105">
+                <i class="fa-solid fa-file-arrow-down"></i> <span class="hidden sm:inline">Export PDF</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Main Workspace -->
+    <div class="flex-1 flex overflow-hidden relative">
+        
+        <!-- Sidebar: Navigation -->
+        <aside class="w-16 md:w-20 bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 flex flex-col items-center py-6 gap-6 shrink-0 z-30">
+            <button onclick="app.setTab('editor')" class="nav-btn active group relative p-3 rounded-xl hover:bg-blue-50 dark:hover:bg-slate-700 text-blue-600 dark:text-blue-400 transition-all">
+                <i class="fa-solid fa-pen-to-square text-xl"></i>
+                <span class="absolute left-14 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">Content</span>
+            </button>
+            <button onclick="app.setTab('design')" class="nav-btn group relative p-3 rounded-xl hover:bg-blue-50 dark:hover:bg-slate-700 text-gray-500 dark:text-slate-400 transition-all">
+                <i class="fa-solid fa-palette text-xl"></i>
+                <span class="absolute left-14 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">Design</span>
+            </button>
+            
+            <div class="flex-1"></div>
+            
+            <button onclick="app.resetData()" class="group relative p-3 rounded-xl hover:bg-red-50 dark:hover:bg-slate-700 text-red-500 transition-all">
+                <i class="fa-solid fa-trash text-xl"></i>
+                <span class="absolute left-14 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">Reset</span>
+            </button>
+        </aside>
+
+        <!-- Editor Panel -->
+        <section id="panel-editor" class="w-full md:w-[450px] lg:w-[500px] bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 flex flex-col shrink-0 transition-all duration-300 absolute md:relative z-20 h-full transform md:transform-none shadow-xl md:shadow-none">
+            
+            <!-- Panel Header -->
+            <div class="h-14 border-b border-gray-200 dark:border-slate-700 flex items-center justify-between px-6 bg-gray-50 dark:bg-slate-800/50">
+                <h2 id="panel-title" class="font-bold text-lg">Content Editor</h2>
+                <button class="md:hidden text-gray-500" onclick="app.toggleMobilePreview()">
+                    <i class="fa-solid fa-eye"></i> Preview
+                </button>
+            </div>
+
+            <!-- Panel Content -->
+            <div id="panel-content" class="flex-1 overflow-y-auto p-6 space-y-6 scroll-smooth">
+                <!-- Dynamic Content Injected Here -->
+            </div>
+            
+            <!-- Sticky Add Block Button (Only in Editor Tab) -->
+            <div id="editor-footer" class="p-4 border-t border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800">
+                <button onclick="app.openAddBlockModal()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 transition-transform active:scale-95">
+                    <i class="fa-solid fa-plus-circle"></i> Add Section Block
+                </button>
+            </div>
+        </section>
+
+        <!-- Preview Area -->
+        <main class="flex-1 bg-gray-100 dark:bg-slate-900 flex items-center justify-center p-8 overflow-hidden relative">
+            <div class="absolute top-4 right-4 flex gap-2 z-10">
+                <div class="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 flex items-center p-1">
+                    <button onclick="app.zoom(-0.1)" class="w-8 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-slate-700 rounded text-gray-600 dark:text-slate-300"><i class="fa-solid fa-minus"></i></button>
+                    <span id="zoom-level" class="text-xs font-mono w-12 text-center text-gray-500 dark:text-slate-400">100%</span>
+                    <button onclick="app.zoom(0.1)" class="w-8 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-slate-700 rounded text-gray-600 dark:text-slate-300"><i class="fa-solid fa-plus"></i></button>
+                </div>
+            </div>
+
+            <div class="overflow-auto w-full h-full flex items-start justify-center pt-4 pb-20" id="preview-scroll-container">
+                <!-- Resume Page Container -->
+                <div id="resume-preview" class="a4-page text-sm leading-normal">
+                   <!-- Content Rendered by JS -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <!-- Add Block Modal -->
+    <div id="add-block-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md mx-4">
+            <div class="p-5 border-b border-gray-200 dark:border-slate-700">
+                <h3 class="font-bold text-lg">Add New Section</h3>
+            </div>
+            <div class="p-5 grid grid-cols-2 gap-4">
+                <button onclick="app.addNewBlock('list-detailed', 'Projects')" class="p-4 border border-gray-200 dark:border-slate-600 rounded-lg hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-slate-700 flex flex-col items-center gap-2 transition-all">
+                    <i class="fa-solid fa-briefcase text-2xl text-blue-500"></i>
+                    <span class="text-sm font-bold">Experience / Projects</span>
+                </button>
+                <button onclick="app.addNewBlock('list-simple', 'Languages')" class="p-4 border border-gray-200 dark:border-slate-600 rounded-lg hover:border-green-500 hover:bg-green-50 dark:hover:bg-slate-700 flex flex-col items-center gap-2 transition-all">
+                    <i class="fa-solid fa-list-check text-2xl text-green-500"></i>
+                    <span class="text-sm font-bold">Skills / Languages</span>
+                </button>
+                <button onclick="app.addNewBlock('text', 'Custom Section')" class="p-4 border border-gray-200 dark:border-slate-600 rounded-lg hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-slate-700 flex flex-col items-center gap-2 transition-all">
+                    <i class="fa-solid fa-align-left text-2xl text-purple-500"></i>
+                    <span class="text-sm font-bold">Text / Summary</span>
+                </button>
+                <button onclick="app.addNewBlock('list-detailed', 'Certifications')" class="p-4 border border-gray-200 dark:border-slate-600 rounded-lg hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-slate-700 flex flex-col items-center gap-2 transition-all">
+                    <i class="fa-solid fa-certificate text-2xl text-orange-500"></i>
+                    <span class="text-sm font-bold">Certifications</span>
+                </button>
+            </div>
+            <div class="p-4 bg-gray-50 dark:bg-slate-800/50 border-t border-gray-200 dark:border-slate-700 flex justify-end">
+                <button onclick="document.getElementById('add-block-modal').classList.add('hidden')" class="px-4 py-2 text-gray-600 dark:text-slate-300 font-medium hover:bg-gray-200 dark:hover:bg-slate-700 rounded-lg">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <script>
+        const DEFAULT_DATA = {
+            meta: {
+                template: 'modern',
+                color: '#3b82f6',
+                fontBody: 'Inter',
+                fontHeading: 'Merriweather',
+                spacing: 1.0,
+                customFonts: [] // Store names of loaded fonts
+            },
+            profile: {
+                name: "Alex Morgan",
+                role: "Senior Product Designer",
+                email: "alex.morgan@example.com",
+                phone: "+1 (555) 123-4567",
+                location: "San Francisco, CA",
+                website: "alexmorgan.design",
+                image: null 
+            },
+            // The new Block-Based Structure
+            blocks: [
+                {
+                    id: 'blk_summary',
+                    type: 'text',
+                    title: 'Professional Summary',
+                    position: 'main', // main or sidebar
+                    content: "Creative and detail-oriented Product Designer with over 6 years of experience in building user-centric digital products. Proficient in translating complex requirements into intuitive, interactive, and visually appealing designs."
+                },
+                {
+                    id: 'blk_exp',
+                    type: 'list-detailed',
+                    title: 'Work Experience',
+                    position: 'main',
+                    items: [
+                        {
+                            title: "Senior Product Designer",
+                            subtitle: "TechFlow Solutions",
+                            date: "2021 - Present",
+                            desc: "• Spearheaded the redesign of the core SaaS platform, resulting in a 25% increase in user engagement.\n• Mentored a team of 4 junior designers."
+                        },
+                        {
+                            title: "UX Designer",
+                            subtitle: "Creative Pulse Agency",
+                            date: "2018 - 2021",
+                            desc: "• Conducted user research and usability testing for Fortune 500 clients.\n• Created high-fidelity wireframes using Figma."
+                        }
+                    ]
+                },
+                {
+                    id: 'blk_edu',
+                    type: 'list-detailed',
+                    title: 'Education',
+                    position: 'sidebar',
+                    items: [
+                        {
+                            title: "B.S. Interaction Design",
+                            subtitle: "University of California",
+                            date: "2014 - 2018",
+                            desc: "Graduated with Honors."
+                        }
+                    ]
+                },
+                {
+                    id: 'blk_skills',
+                    type: 'list-simple',
+                    title: 'Skills',
+                    position: 'sidebar',
+                    items: [
+                        { name: "Figma & Sketch", level: 90 },
+                        { name: "HTML/CSS/JS", level: 75 },
+                        { name: "User Research", level: 85 }
+                    ]
+                }
+            ]
+        };
+
+        const TEMPLATES = {
+            modern: {
+                layout: 'grid grid-cols-[30%_70%] h-full',
+                sidebarClass: 'bg-slate-100 text-slate-800 p-8 flex flex-col gap-6',
+                mainClass: 'bg-white p-8 flex flex-col gap-6',
+                headerClass: 'mb-4',
+                sectionTitle: 'text-sm font-bold uppercase tracking-wider mb-3 border-b-2 pb-1'
+            },
+            classic: {
+                layout: 'flex flex-col p-10 gap-6',
+                sidebarClass: 'hidden', 
+                mainClass: 'w-full flex flex-col gap-6',
+                headerClass: 'text-center border-b-2 border-gray-800 pb-6 mb-2',
+                sectionTitle: 'text-lg font-serif font-bold uppercase border-b border-gray-300 mb-4 pb-1 mt-4'
+            },
+            creative: {
+                layout: 'grid grid-cols-[35%_65%] h-full',
+                sidebarClass: 'bg-gray-900 text-white p-8 flex flex-col gap-8',
+                mainClass: 'bg-white p-10 flex flex-col gap-8',
+                headerClass: 'mb-8',
+                sectionTitle: 'text-xl font-bold mb-4 text-purple-600'
+            }
+        };
+
+        class ResumeApp {
+            constructor() {
+                this.data = JSON.parse(localStorage.getItem('resumeDataBlock')) || JSON.parse(JSON.stringify(DEFAULT_DATA));
+                // Migration check
+                if (!this.data.blocks) {
+                    this.data = JSON.parse(JSON.stringify(DEFAULT_DATA));
+                }
+                // Ensure customFonts array exists
+                if (!this.data.meta.customFonts) {
+                    this.data.meta.customFonts = [];
+                }
+                
+                this.availableFonts = ['Inter', 'Merriweather', 'Roboto Mono', 'Lato'];
+                this.currentTab = 'editor';
+                this.zoomLevel = 1;
+                this.init();
+            }
+
+            init() {
+                // Restore custom fonts
+                this.data.meta.customFonts.forEach(font => this.injectFont(font));
+                
+                this.renderEditor();
+                this.renderPreview();
+                this.loadDarkMode();
+                setInterval(() => this.save(), 2000);
+            }
+
+            save() {
+                localStorage.setItem('resumeDataBlock', JSON.stringify(this.data));
+            }
+
+            resetData() {
+                if(confirm("Are you sure? This will clear all changes.")) {
+                    this.data = JSON.parse(JSON.stringify(DEFAULT_DATA));
+                    this.renderEditor();
+                    this.renderPreview();
+                    this.toast("Resume reset to default", "info");
+                }
+            }
+
+            // --- NAVIGATION & UI ---
+            setTab(tab) {
+                this.currentTab = tab;
+                document.querySelectorAll('.nav-btn').forEach(btn => {
+                    btn.classList.remove('text-blue-600', 'dark:text-blue-400', 'bg-blue-50', 'dark:bg-slate-700');
+                    btn.classList.add('text-gray-500', 'dark:text-slate-400');
+                });
+                event.currentTarget.classList.add('text-blue-600', 'dark:text-blue-400', 'bg-blue-50', 'dark:bg-slate-700');
+                event.currentTarget.classList.remove('text-gray-500');
+
+                const title = document.getElementById('panel-title');
+                const footer = document.getElementById('editor-footer');
+                
+                if (tab === 'editor') {
+                    title.innerText = 'Content Editor';
+                    footer.classList.remove('hidden');
+                    this.renderEditor();
+                } else if (tab === 'design') {
+                    title.innerText = 'Design & Layout';
+                    footer.classList.add('hidden');
+                    this.renderDesignPanel();
+                }
+            }
+
+            toggleMobilePreview() {
+                document.querySelector('main').classList.toggle('hidden');
+            }
+
+            openAddBlockModal() {
+                document.getElementById('add-block-modal').classList.remove('hidden');
+            }
+
+            // --- EDITOR RENDERER ---
+            renderEditor() {
+                const container = document.getElementById('panel-content');
+                container.innerHTML = '';
+
+                // 1. Fixed Profile Section
+                container.appendChild(this.createProfileCard());
+
+                // 2. Sortable Container for Blocks
+                const blocksContainer = document.createElement('div');
+                blocksContainer.id = 'blocks-list';
+                blocksContainer.className = 'space-y-6 mt-6';
+
+                this.data.blocks.forEach((block, index) => {
+                    blocksContainer.appendChild(this.createBlockCard(block, index));
+                });
+
+                container.appendChild(blocksContainer);
+
+                // Initialize Sortable for main blocks
+                new Sortable(blocksContainer, {
+                    handle: '.block-handle',
+                    animation: 150,
+                    onEnd: (evt) => {
+                        const item = this.data.blocks.splice(evt.oldIndex, 1)[0];
+                        this.data.blocks.splice(evt.newIndex, 0, item);
+                        this.renderPreview(); 
+                    }
+                });
+            }
+
+            createProfileCard() {
+                const card = document.createElement('div');
+                card.className = 'border border-gray-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 shadow-sm overflow-hidden';
+                card.innerHTML = `
+                    <div class="bg-gray-50 dark:bg-slate-900/50 p-4 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center cursor-pointer" onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('.fa-chevron-down').classList.toggle('rotate-180')">
+                        <h3 class="font-bold text-gray-800 dark:text-gray-200">Profile / Header</h3>
+                        <i class="fa-solid fa-chevron-down text-gray-400 transition-transform duration-200"></i>
+                    </div>
+                    <div class="p-4 grid grid-cols-2 gap-4">
+                        <div class="col-span-2 flex items-center gap-4 mb-2 p-3 border border-dashed border-gray-300 dark:border-slate-600 rounded-lg bg-gray-50 dark:bg-slate-800/50">
+                            <div class="w-16 h-16 bg-gray-200 dark:bg-slate-700 rounded-full flex items-center justify-center overflow-hidden shrink-0">
+                                ${this.data.profile.image ? `<img src="${this.data.profile.image}" class="w-full h-full object-cover">` : '<i class="fa-solid fa-user text-gray-400 text-2xl"></i>'}
+                            </div>
+                            <div class="flex-1">
+                                <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Profile Picture</label>
+                                <div class="flex gap-2">
+                                    <label class="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-xs font-medium transition-colors">
+                                        Upload Photo
+                                        <input type="file" class="hidden" accept="image/*" onchange="app.handleImageUpload(event)">
+                                    </label>
+                                    ${this.data.profile.image ? `<button onclick="app.removeImage()" class="text-red-500 hover:text-red-700 text-xs font-medium px-2">Remove</button>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Full Name</label>
+                            <input type="text" class="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600" value="${this.data.profile.name}" oninput="app.updateProfile('name', this.value)">
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Job Title</label>
+                            <input type="text" class="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600" value="${this.data.profile.role}" oninput="app.updateProfile('role', this.value)">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Email</label>
+                            <input type="text" class="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600" value="${this.data.profile.email}" oninput="app.updateProfile('email', this.value)">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Phone</label>
+                            <input type="text" class="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600" value="${this.data.profile.phone}" oninput="app.updateProfile('phone', this.value)">
+                        </div>
+                         <div class="col-span-2">
+                            <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Location</label>
+                            <input type="text" class="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600" value="${this.data.profile.location}" oninput="app.updateProfile('location', this.value)">
+                        </div>
+                         <div class="col-span-2">
+                            <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Website / Link</label>
+                            <input type="text" class="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600" value="${this.data.profile.website}" oninput="app.updateProfile('website', this.value)">
+                        </div>
+                    </div>
+                `;
+                return card;
+            }
+
+            createBlockCard(block, blockIndex) {
+                const card = document.createElement('div');
+                card.className = 'border border-gray-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 shadow-sm overflow-hidden block-item';
+                
+                // Header
+                const header = document.createElement('div');
+                header.className = 'bg-gray-50 dark:bg-slate-900/50 p-3 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center group';
+                header.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <button class="text-gray-400 hover:text-blue-500 block-handle" title="Drag to reorder section"><i class="fa-solid fa-grip-vertical text-lg"></i></button>
+                        <input type="text" class="bg-transparent font-bold text-gray-800 dark:text-gray-200 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none transition-colors" value="${block.title}" onchange="app.updateBlockTitle(${blockIndex}, this.value)">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="flex items-center mr-2" title="Move to Sidebar/Main">
+                             <button onclick="app.toggleBlockPosition(${blockIndex})" class="text-xs px-2 py-1 rounded border ${block.position === 'sidebar' ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-gray-100 text-gray-600 border-gray-200'}">
+                                ${block.position === 'sidebar' ? '<i class="fa-solid fa-columns"></i> Sidebar' : '<i class="fa-regular fa-file-lines"></i> Main'}
+                             </button>
+                        </div>
+                        <button onclick="app.deleteBlock(${blockIndex})" class="text-gray-400 hover:text-red-500 px-2"><i class="fa-solid fa-trash"></i></button>
+                        <button onclick="this.closest('.block-item').querySelector('.card-body').classList.toggle('hidden'); this.querySelector('i').classList.toggle('rotate-180')" class="text-gray-400 hover:text-gray-600 px-2"><i class="fa-solid fa-chevron-down transition-transform"></i></button>
+                    </div>
+                `;
+                card.appendChild(header);
+
+                // Body
+                const body = document.createElement('div');
+                body.className = 'card-body p-4 bg-white dark:bg-slate-800';
+                
+                if (block.type === 'text') {
+                    body.innerHTML = `
+                        <div class="relative">
+                            <textarea class="w-full p-3 border rounded-lg h-32 dark:bg-slate-700 dark:border-slate-600 focus:ring-2 focus:ring-blue-500 outline-none" oninput="app.updateBlockContent(${blockIndex}, this.value)">${block.content}</textarea>
+                        </div>
+                    `;
+                } else if (block.type === 'list-detailed') {
+                    // Detailed List (Experience, Education, Projects)
+                    const listContainer = document.createElement('div');
+                    listContainer.className = 'space-y-4 sortable-items';
+                    
+                    block.items.forEach((item, itemIndex) => {
+                        const row = document.createElement('div');
+                        row.className = 'p-3 bg-gray-50 dark:bg-slate-700/50 rounded border border-gray-100 dark:border-slate-700 group relative';
+                        row.innerHTML = `
+                            <div class="flex justify-between items-start mb-2">
+                                <div class="flex items-center gap-2 w-full">
+                                    <span class="cursor-move text-gray-400 hover:text-blue-500 item-handle"><i class="fa-solid fa-grip-lines"></i></span>
+                                    <input placeholder="Title (e.g. Job Role)" class="font-bold text-sm bg-transparent w-1/2 outline-none border-b border-transparent focus:border-blue-400" value="${item.title}" oninput="app.updateBlockItem(${blockIndex}, ${itemIndex}, 'title', this.value)">
+                                    <input placeholder="Subtitle (e.g. Company)" class="text-sm bg-transparent w-1/3 outline-none border-b border-transparent focus:border-blue-400" value="${item.subtitle || ''}" oninput="app.updateBlockItem(${blockIndex}, ${itemIndex}, 'subtitle', this.value)">
+                                </div>
+                                <button onclick="app.deleteBlockItem(${blockIndex}, ${itemIndex})" class="text-gray-300 hover:text-red-500"><i class="fa-solid fa-times"></i></button>
+                            </div>
+                            <div class="pl-6 space-y-2">
+                                <input placeholder="Date / Location" class="w-full text-xs text-gray-500 bg-transparent outline-none border-b border-transparent focus:border-blue-400" value="${item.date || ''}" oninput="app.updateBlockItem(${blockIndex}, ${itemIndex}, 'date', this.value)">
+                                <div class="relative">
+                                     <textarea placeholder="Description" class="w-full text-sm bg-transparent border border-gray-200 dark:border-slate-600 rounded p-2 h-20 outline-none focus:border-blue-400" oninput="app.updateBlockItem(${blockIndex}, ${itemIndex}, 'desc', this.value)">${item.desc || ''}</textarea>
+                                </div>
+                            </div>
+                        `;
+                        listContainer.appendChild(row);
+                    });
+
+                    // Add Item Button
+                    const addBtn = document.createElement('button');
+                    addBtn.className = 'w-full py-2 border-2 border-dashed border-gray-200 dark:border-slate-600 rounded text-sm text-gray-500 hover:border-blue-500 hover:text-blue-500 transition-colors mt-2';
+                    addBtn.innerHTML = '+ Add Item';
+                    addBtn.onclick = () => app.addBlockItem(blockIndex);
+
+                    body.appendChild(listContainer);
+                    body.appendChild(addBtn);
+
+                    // Inner Sortable
+                    new Sortable(listContainer, {
+                        handle: '.item-handle',
+                        animation: 150,
+                        onEnd: (evt) => {
+                            const item = block.items.splice(evt.oldIndex, 1)[0];
+                            block.items.splice(evt.newIndex, 0, item);
+                            this.renderPreview();
+                        }
+                    });
+
+                } else if (block.type === 'list-simple') {
+                    // Simple List (Skills, Languages)
+                    const listContainer = document.createElement('div');
+                    listContainer.className = 'grid grid-cols-1 gap-2 sortable-items';
+
+                    block.items.forEach((item, itemIndex) => {
+                        const row = document.createElement('div');
+                        row.className = 'flex items-center gap-2 p-2 bg-gray-50 dark:bg-slate-700/50 rounded border border-gray-100 dark:border-slate-700';
+                        row.innerHTML = `
+                            <span class="cursor-move text-gray-400 hover:text-blue-500 item-handle"><i class="fa-solid fa-grip-lines"></i></span>
+                            <input class="flex-1 bg-transparent text-sm outline-none" value="${item.name}" oninput="app.updateBlockItem(${blockIndex}, ${itemIndex}, 'name', this.value)">
+                            <input type="range" min="0" max="100" class="w-20" value="${item.level}" oninput="app.updateBlockItem(${blockIndex}, ${itemIndex}, 'level', this.value)">
+                            <button onclick="app.deleteBlockItem(${blockIndex}, ${itemIndex})" class="text-gray-300 hover:text-red-500"><i class="fa-solid fa-times"></i></button>
+                        `;
+                        listContainer.appendChild(row);
+                    });
+                     // Add Item Button
+                    const addBtn = document.createElement('button');
+                    addBtn.className = 'w-full py-1 text-xs font-bold text-blue-500 hover:text-blue-700 mt-2 text-left';
+                    addBtn.innerHTML = '+ Add Skill/Item';
+                    addBtn.onclick = () => app.addBlockItem(blockIndex);
+
+                    body.appendChild(listContainer);
+                    body.appendChild(addBtn);
+
+                     // Inner Sortable
+                    new Sortable(listContainer, {
+                        handle: '.item-handle',
+                        animation: 150,
+                        onEnd: (evt) => {
+                            const item = block.items.splice(evt.oldIndex, 1)[0];
+                            block.items.splice(evt.newIndex, 0, item);
+                            this.renderPreview();
+                        }
+                    });
+                }
+
+                card.appendChild(body);
+                return card;
+            }
+
+            // --- DATA ACTIONS ---
+            addNewBlock(type, title) {
+                const newBlock = {
+                    id: 'blk_' + Date.now(),
+                    type: type,
+                    title: title,
+                    position: 'main',
+                    items: type === 'text' ? null : [],
+                    content: type === 'text' ? 'New section content...' : null
+                };
+                
+                if (type === 'list-detailed') {
+                    newBlock.items.push({ title: 'Role/Degree', subtitle: 'Company/School', date: 'Year', desc: 'Description' });
+                } else if (type === 'list-simple') {
+                    newBlock.items.push({ name: 'Skill Name', level: 80 });
+                }
+
+                this.data.blocks.push(newBlock);
+                document.getElementById('add-block-modal').classList.add('hidden');
+                this.renderEditor();
+                this.renderPreview();
+                this.toast(`Added ${title} block`, 'success');
+            }
+
+            deleteBlock(index) {
+                if(confirm("Delete this entire section?")) {
+                    this.data.blocks.splice(index, 1);
+                    this.renderEditor();
+                    this.renderPreview();
+                }
+            }
+
+            toggleBlockPosition(index) {
+                const block = this.data.blocks[index];
+                block.position = block.position === 'main' ? 'sidebar' : 'main';
+                this.renderEditor(); // Re-render to update icon
+                this.renderPreview();
+            }
+
+            updateBlockTitle(index, val) {
+                this.data.blocks[index].title = val;
+                this.renderPreview();
+            }
+
+            updateBlockContent(index, val) {
+                this.data.blocks[index].content = val;
+                this.renderPreview();
+            }
+
+            addBlockItem(blockIndex) {
+                const block = this.data.blocks[blockIndex];
+                if (block.type === 'list-detailed') {
+                    block.items.push({ title: "New Title", subtitle: "New Subtitle", date: "Date", desc: "" });
+                } else {
+                    block.items.push({ name: "New Item", level: 50 });
+                }
+                this.renderEditor();
+                this.renderPreview();
+            }
+
+            deleteBlockItem(blockIndex, itemIndex) {
+                this.data.blocks[blockIndex].items.splice(itemIndex, 1);
+                this.renderEditor();
+                this.renderPreview();
+            }
+
+            updateBlockItem(blockIndex, itemIndex, key, value) {
+                this.data.blocks[blockIndex].items[itemIndex][key] = value;
+                this.renderPreview();
+            }
+
+            updateProfile(key, value) {
+                this.data.profile[key] = value;
+                this.renderPreview();
+            }
+
+            handleImageUpload(event) {
+                const file = event.target.files[0];
+                if (file) {
+                    if (file.size > 2 * 1024 * 1024) { // 2MB limit check
+                        this.toast("Image is too large (Max 2MB)", "error");
+                        return;
+                    }
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        this.data.profile.image = e.target.result;
+                        this.renderEditor();
+                        this.renderPreview();
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
+
+            removeImage() {
+                this.data.profile.image = null;
+                this.renderEditor();
+                this.renderPreview();
+            }
+
+            // --- PREVIEW RENDERER (CORE LOGIC) ---
+            renderPreview() {
+                const preview = document.getElementById('resume-preview');
+                const tpl = TEMPLATES[this.data.meta.template];
+                const meta = this.data.meta;
+                const profile = this.data.profile;
+
+                // Base Styles
+                preview.style.fontFamily = `'${meta.fontBody}', sans-serif`;
+                preview.style.lineHeight = meta.spacing * 1.5;
+
+                // Image HTML generator
+                const getImageHTML = (sizeClass = 'w-32 h-32', roundedClass = 'rounded-full') => {
+                    return profile.image 
+                        ? `<div class="${sizeClass} ${roundedClass} overflow-hidden mb-4 mx-auto border-4 border-white shadow-sm shrink-0">
+                             <img src="${profile.image}" class="w-full h-full object-cover" alt="${profile.name}">
+                           </div>` 
+                        : '';
+                };
+
+                // Header HTML generators based on layout needs
+                
+                // 1. Classic Header (Image Top Right or Top Center)
+                const classicHeaderHTML = `
+                    <header class="${tpl.headerClass} flex items-center justify-between gap-6">
+                        <div class="flex-1">
+                            <h1 class="text-4xl font-bold mb-2 uppercase tracking-tight" style="font-family: '${meta.fontHeading}', serif; color: inherit">${profile.name}</h1>
+                            <p class="text-lg opacity-80 mb-4 font-medium tracking-wide" style="color: ${meta.color}">${profile.role}</p>
+                            <div class="text-sm opacity-70 flex flex-wrap gap-x-4 gap-y-1">
+                                ${profile.location ? `<span><i class="fa-solid fa-location-dot mr-1"></i> ${profile.location}</span>` : ''}
+                                ${profile.phone ? `<span><i class="fa-solid fa-phone mr-1"></i> ${profile.phone}</span>` : ''}
+                                ${profile.email ? `<span><i class="fa-solid fa-envelope mr-1"></i> ${profile.email}</span>` : ''}
+                                ${profile.website ? `<span><i class="fa-solid fa-globe mr-1"></i> ${profile.website}</span>` : ''}
+                            </div>
+                        </div>
+                        ${profile.image ? `<div class="w-24 h-24 rounded-lg overflow-hidden shrink-0 border border-gray-200"><img src="${profile.image}" class="w-full h-full object-cover"></div>` : ''}
+                    </header>
+                `;
+
+                // 2. Sidebar Header (Modern/Creative)
+                const sidebarHeaderHTML = `
+                    <header class="${tpl.headerClass} text-center">
+                        ${getImageHTML(meta.template === 'creative' ? 'w-40 h-40' : 'w-32 h-32', meta.template === 'creative' ? 'rounded-full ring-4 ring-opacity-20 ring-white' : 'rounded-full')}
+                        <h1 class="text-3xl font-bold mb-2 leading-tight" style="font-family: '${meta.fontHeading}', serif; color: ${meta.template === 'creative' ? meta.color : 'inherit'}">${profile.name}</h1>
+                        <p class="text-md opacity-80 mb-6 font-medium" style="color: ${meta.template !== 'creative' ? meta.color : 'inherit'}">${profile.role}</p>
+                        
+                        <div class="text-sm opacity-80 flex flex-col gap-2 items-center text-center">
+                            ${profile.location ? `<span><i class="fa-solid fa-location-dot mr-2 w-4"></i> ${profile.location}</span>` : ''}
+                            ${profile.phone ? `<span><i class="fa-solid fa-phone mr-2 w-4"></i> ${profile.phone}</span>` : ''}
+                            ${profile.email ? `<span><i class="fa-solid fa-envelope mr-2 w-4"></i> ${profile.email}</span>` : ''}
+                            ${profile.website ? `<span><i class="fa-solid fa-globe mr-2 w-4"></i> ${profile.website}</span>` : ''}
+                        </div>
+                    </header>
+                `;
+
+                // Render Blocks Helper
+                const renderBlock = (block) => {
+                    let content = '';
+                    
+                    if (block.type === 'text') {
+                        content = `<p class="whitespace-pre-line text-sm opacity-90">${block.content}</p>`;
+                    } else if (block.type === 'list-detailed') {
+                        content = block.items.map(item => `
+                            <div class="mb-4 last:mb-0">
+                                <div class="flex justify-between items-baseline mb-1">
+                                    <h3 class="font-bold text-md">${item.title}</h3>
+                                    <span class="text-xs opacity-70 whitespace-nowrap bg-gray-100 px-2 py-0.5 rounded text-gray-800">${item.date || ''}</span>
+                                </div>
+                                <div class="text-sm font-semibold opacity-80 mb-1" style="color: ${meta.color}">${item.subtitle || ''}</div>
+                                <p class="text-sm whitespace-pre-line opacity-90">${item.desc || ''}</p>
+                            </div>
+                        `).join('');
+                    } else if (block.type === 'list-simple') {
+                        content = `<div class="space-y-2">
+                            ${block.items.map(item => `
+                                <div>
+                                    <div class="flex justify-between text-xs mb-1"><strong>${item.name}</strong></div>
+                                    <div class="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                                        <div class="h-1.5 rounded-full" style="width: ${item.level}%; background-color: ${meta.color}"></div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>`;
+                    }
+
+                    return `
+                        <section class="mb-6">
+                            <h2 class="${tpl.sectionTitle}" style="border-color: ${meta.color}">${block.title}</h2>
+                            ${content}
+                        </section>
+                    `;
+                };
+
+                // Split Logic
+                if (meta.template === 'classic') {
+                    // Single Column: Everything flows
+                    const allBlocks = this.data.blocks.map(b => renderBlock(b)).join('');
+                    preview.innerHTML = `
+                        <div class="${tpl.layout}">
+                            ${classicHeaderHTML}
+                            <hr class="border-gray-300 mb-6" />
+                            ${allBlocks}
+                        </div>
+                    `;
+                } else {
+                    // Two Columns: Main vs Sidebar
+                    const mainBlocks = this.data.blocks.filter(b => b.position !== 'sidebar').map(b => renderBlock(b)).join('');
+                    const sidebarBlocks = this.data.blocks.filter(b => b.position === 'sidebar').map(b => renderBlock(b)).join('');
+                    
+                    preview.innerHTML = `
+                        <div class="${tpl.layout}">
+                            <aside class="${tpl.sidebarClass}" style="${meta.template==='creative' ? 'background-color:#1e293b' : ''}">
+                                ${sidebarHeaderHTML}
+                                <div class="mt-8">
+                                    ${sidebarBlocks}
+                                </div>
+                            </aside>
+                            <main class="${tpl.mainClass}">
+                                ${meta.template === 'modern' ? `<h1 class="text-4xl font-bold mb-1" style="font-family: '${meta.fontHeading}', serif;">${profile.name}</h1><p class="text-xl text-gray-500 mb-6">${profile.role}</p>` : ''}
+                                ${mainBlocks}
+                            </main>
+                        </div>
+                    `;
+                }
+            }
+
+            // --- DESIGN PANEL ---
+            renderDesignPanel() {
+                const container = document.getElementById('panel-content');
+                container.innerHTML = `
+                    <div class="space-y-8">
+                        <div>
+                            <h3 class="font-bold text-gray-700 dark:text-gray-300 mb-3">Templates</h3>
+                            <div class="grid grid-cols-3 gap-3">
+                                <button onclick="app.setTemplate('modern')" class="border-2 ${this.data.meta.template === 'modern' ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200 dark:border-slate-600'} rounded-lg p-2 hover:border-blue-400 transition-all">
+                                    <div class="h-16 bg-gray-100 flex mb-2"><div class="w-1/3 bg-gray-300"></div><div class="w-2/3"></div></div>
+                                    <p class="text-xs text-center font-medium">Modern</p>
+                                </button>
+                                <button onclick="app.setTemplate('classic')" class="border-2 ${this.data.meta.template === 'classic' ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200 dark:border-slate-600'} rounded-lg p-2 hover:border-blue-400 transition-all">
+                                    <div class="h-16 bg-gray-100 flex flex-col items-center pt-2 mb-2"><div class="w-3/4 h-2 bg-gray-300 mb-2"></div><div class="w-full h-px bg-gray-300"></div></div>
+                                    <p class="text-xs text-center font-medium">Classic</p>
+                                </button>
+                                <button onclick="app.setTemplate('creative')" class="border-2 ${this.data.meta.template === 'creative' ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200 dark:border-slate-600'} rounded-lg p-2 hover:border-blue-400 transition-all">
+                                    <div class="h-16 bg-gray-100 flex mb-2"><div class="w-1/3 bg-gray-800"></div><div class="w-2/3"></div></div>
+                                    <p class="text-xs text-center font-medium">Creative</p>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="font-bold text-gray-700 dark:text-gray-300 mb-3">Accent Color</h3>
+                            <div class="flex gap-3 flex-wrap">
+                                ${['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#0f172a'].map(c => `
+                                    <button onclick="app.setColor('${c}')" class="w-8 h-8 rounded-full shadow-sm ring-2 ring-offset-2 ring-transparent hover:ring-gray-300 transition-all ${this.data.meta.color === c ? 'ring-gray-400' : ''}" style="background-color: ${c}"></button>
+                                `).join('')}
+                                <input type="color" value="${this.data.meta.color}" oninput="app.setColor(this.value)" class="w-8 h-8 rounded-full overflow-hidden cursor-pointer border-0">
+                            </div>
+                        </div>
+                        
+                         <div>
+                            <h3 class="font-bold text-gray-700 dark:text-gray-300 mb-3">Typography</h3>
+                            
+                            <!-- Custom Font Loader -->
+                            <div class="mb-4 p-3 bg-blue-50 dark:bg-slate-700 rounded-lg border border-blue-100 dark:border-slate-600">
+                                <label class="text-xs font-bold text-blue-600 dark:text-blue-300 uppercase mb-1 block">Add Google Font</label>
+                                <div class="flex gap-2">
+                                    <input id="google-font-name" type="text" placeholder="e.g. Poppins" class="flex-1 p-2 text-sm border rounded dark:bg-slate-800 dark:border-slate-600 focus:border-blue-500 outline-none">
+                                    <button onclick="app.loadCustomFont()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition-colors"><i class="fa-solid fa-cloud-arrow-down"></i></button>
+                                </div>
+                                <p class="text-[10px] text-gray-500 mt-1">Enter exact name from <a href="https://fonts.google.com" target="_blank" class="underline hover:text-blue-600">fonts.google.com</a></p>
+                            </div>
+
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="text-xs text-gray-500 uppercase">Heading Font</label>
+                                    <select onchange="app.setFont('heading', this.value)" class="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600">
+                                        ${this.getFontOptions(this.data.meta.fontHeading)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-500 uppercase">Body Font</label>
+                                    <select onchange="app.setFont('body', this.value)" class="w-full p-2 border rounded dark:bg-slate-700 dark:border-slate-600">
+                                        ${this.getFontOptions(this.data.meta.fontBody)}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            getFontOptions(selectedFont) {
+                // Combine default fonts with user-loaded custom fonts
+                const allFonts = [...this.availableFonts, ...this.data.meta.customFonts];
+                // Remove duplicates just in case
+                const uniqueFonts = [...new Set(allFonts)];
+                
+                return uniqueFonts.map(font => 
+                    `<option value="${font}" ${selectedFont === font ? 'selected' : ''} style="font-family: '${font}', sans-serif">${font}</option>`
+                ).join('');
+            }
+
+            loadCustomFont() {
+                const input = document.getElementById('google-font-name');
+                const fontName = input.value.trim();
+                if (!fontName) return;
+
+                // Capitalize first letter of each word for display consistency (optional, Google is case insensitive usually but good for UI)
+                const formattedName = fontName.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+
+                this.injectFont(formattedName);
+                
+                // Add to data if not exists
+                if (!this.data.meta.customFonts.includes(formattedName)) {
+                    this.data.meta.customFonts.push(formattedName);
+                    this.save();
+                }
+
+                this.toast(`Loaded font: ${formattedName}`, 'success');
+                input.value = '';
+                
+                // Re-render design panel to update dropdowns
+                this.renderDesignPanel();
+            }
+
+            injectFont(fontName) {
+                const linkId = `font-${fontName.replace(/\s+/g, '-').toLowerCase()}`;
+                if (!document.getElementById(linkId)) {
+                    const link = document.createElement('link');
+                    link.id = linkId;
+                    link.rel = 'stylesheet';
+                    link.href = `https://fonts.googleapis.com/css2?family=${fontName.replace(/\s+/g, '+')}:wght@300;400;500;700&display=swap`;
+                    document.head.appendChild(link);
+                }
+            }
+            
+            setTemplate(name) { this.data.meta.template = name; this.renderDesignPanel(); this.renderPreview(); }
+            setColor(color) { this.data.meta.color = color; this.renderDesignPanel(); this.renderPreview(); }
+            setFont(type, font) { if (type === 'heading') this.data.meta.fontHeading = font; if (type === 'body') this.data.meta.fontBody = font; this.renderPreview(); }
+
+            randomizeDesign() {
+                const templates = Object.keys(TEMPLATES);
+                this.data.meta.template = templates[Math.floor(Math.random() * templates.length)];
+                this.data.meta.color = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6'][Math.floor(Math.random() * 5)];
+                this.renderPreview();
+                if(this.currentTab === 'design') this.renderDesignPanel();
+                this.toast("Design Randomized! 🎲", "info");
+            }
+
+            exportPDF() {
+                const element = document.getElementById('resume-preview');
+                const opt = { margin: 0, filename: 'My_Resume.pdf', image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+                this.toast("Generating PDF...", "info");
+                const clone = element.cloneNode(true);
+                clone.style.transform = 'scale(1)';
+                document.body.appendChild(clone);
+                html2pdf().set(opt).from(clone).save().then(() => { document.body.removeChild(clone); this.toast("PDF Downloaded!", "success"); });
+            }
+
+            toast(msg, type = 'success') {
+                const container = document.getElementById('toast-container');
+                const div = document.createElement('div');
+                div.className = `toast ${type}`;
+                div.innerHTML = `<i class="fa-solid ${type === 'success' ? 'fa-check-circle' : 'fa-info-circle'}"></i><span>${msg}</span>`;
+                container.appendChild(div);
+                setTimeout(() => { div.style.opacity = '0'; div.style.transform = 'translateX(100%)'; setTimeout(() => container.removeChild(div), 300); }, 3000);
+            }
+            
+            toggleDarkMode() { document.documentElement.classList.toggle('dark'); }
+            loadDarkMode() { if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) { } }
+            zoom(amount) { this.zoomLevel = Math.max(0.5, Math.min(1.5, this.zoomLevel + amount)); document.getElementById('resume-preview').style.transform = `scale(${this.zoomLevel})`; document.getElementById('zoom-level').innerText = Math.round(this.zoomLevel * 100) + '%'; }
+        }
+
+        const app = new ResumeApp();
+    </script>
+</body>
+</html>
